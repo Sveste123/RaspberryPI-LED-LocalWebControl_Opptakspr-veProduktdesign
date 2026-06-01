@@ -1,0 +1,13 @@
+[Unit]
+Description=HC-SR04 Sensor HTTP Server
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/sverrestenbaek/sensor_server.py
+WorkingDirectory=/home/sverrestenbaek
+StandardOutput=append:/home/sverrestenbaek/sensor.log
+StandardError=append:/home/sverrestenbaek/sensor.log
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

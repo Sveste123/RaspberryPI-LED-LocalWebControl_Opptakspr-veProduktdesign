@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1" />
+    <title>Bestemor's Søppelskur-lys</title>
+    <link rel="stylesheet" href="main.css" />
+    <script src="cash.js"></script>
+</head>
+<div id="distance" style="font-size: 20px; color: white; background: black; padding: 10px; position: fixed; top: 10px; right: 10px; z-index: 1000;">Distance: Loading...</div>
+<script>
+    function updateDistance() {
+        fetch('http://bestemorssppelskur.local:5000/distance')
+            .then(response => response.text())
+            .then(data => {
+                document.getElementById('distance').innerHTML = 'Sensor-distanse: ' + data + ' cm';
+            })
+            .catch(error => {
+                document.getElementById('distance').innerHTML = 'Sensor-distanse: Error';
+                console.error('Error fetching distance:', error);
+            });
+    }
+    setInterval(updateDistance, 1000);
+    updateDistance();
+</script>
+<body>
+    <div>
+	<h2>Bestemor's Søppelskur-lys</h2>
+        <div class=controls>
+            <img src="brightness.svg" alt=Brightness title=Brightness />
+            <input type="range" id="brightness" min="1" max="255" step="1" />
+	    <span id=status></span>
+        </div>
+	<div id=pseudo_effects>
+	    <label><input type="radio" name="g1" id="stop" />Off</label>
+	</div>
+	<div id=effects>
+	</div>
+    </div>
+    <script src="main.js"></script>
+</body>
+</html>

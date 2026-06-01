@@ -1,0 +1,16 @@
+[Unit]
+Description=Trigger Effect Script
+After=network.target ledthemfight.service
+
+[Service]
+ExecStart=/usr/bin/python3 /home/sverrestenbaek/ledthemfight/trigger_effect.py
+WorkingDirectory=/home/sverrestenbaek/ledthemfight
+StandardOutput=append:/home/sverrestenbaek/ledthemfight/trigger_effect.log
+StandardError=append:/home/sverrestenbaek/ledthemfight/trigger_effect.log
+Restart=always
+RestartSec=5
+User=root
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,16 @@
+[Unit]
+Description=LedThemfight Python Script Service
+After=network.target
+
+[Service]
+ExecStart=/usr/bin/python3 /home/sverrestenbaek/ledthemfight/ledthemfight.py
+WorkingDirectory=/home/sverrestenbaek/ledthemfight
+StandardOutput=append:/home/sverrestenbaek/ledthemfight/ledthemfight.log
+StandardError=append:/home/sverrestenbaek/ledthemfight/ledthemfight.log
+Restart=always
+RestartSec=5
+User=root
+Environment=PYTHONUNBUFFERED=1  # Ensure immediate logging
+
+[Install]
+WantedBy=multi-user.target

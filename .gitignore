@@ -1,0 +1,9 @@
+*.swp
+*.bin
+__pycache__/
+*.pyc
+_rpi_ws281x*.so
+ledthemfight/rpi_ws281x/
+*.log
+nohup.out
+ledthemfight/.lgd-nfy0
