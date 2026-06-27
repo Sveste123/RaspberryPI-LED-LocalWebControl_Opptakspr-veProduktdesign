@@ -32,6 +32,7 @@ def timer_loop():
             if manual_override:
                 manual_override = False
                 continue
+            to_led_driver.put(['/button', ('brightness', 230)])
             to_led_driver.put(['/button', ('effect', 'Warm_White')])
         elif now == conf.get('timer_off') and fired != ('off', now):
             fired = ('off', now)
