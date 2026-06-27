@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-import argparse, sys, os, json, urllib.parse, signal
+import argparse, sys, os, json, urllib.parse, signal, threading, time
+from datetime import datetime
 from multiprocessing import Process, Queue
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
@@ -15,6 +16,25 @@ def conf_save():
 
 def conf_push():
     to_led_driver.put(['/initial_setup', conf])
+
+def timer_loop():
+    fired = None
+    while True:
+        time.sleep(20)
+        if not conf or not conf.get('timer_enabled') or not conf.get('set_up'):
+            fired = None
+            continue
+        now = datetime.now().strftime('%H:%M')
+        if now == conf.get('timer_on') and fired != ('on', now):
+            fired = ('on', now)
+            effect = conf.get('timer_last_effect')
+            if effect:
+                to_led_driver.put(['/button', ('effect', effect)])
+        elif now == conf.get('timer_off') and fired != ('off', now):
+            fired = ('off', now)
+            to_led_driver.put(['/button', ('stop', None)])
+        elif now not in (conf.get('timer_on'), conf.get('timer_off')):
+            fired = None
 
 class MyHandler(SimpleHTTPRequestHandler):
     # set a short timeout since Python's http.server basic implementation
@@ -69,6 +89,15 @@ class MyHandler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 return
             self.path = '/index.html'
+        if self.path == '/get/timer':
+            self.send_response(200)
+            self.end_headers()
+            self.write_data(json.dumps({
+                'enabled': conf.get('timer_enabled', False),
+                'on': conf.get('timer_on', ''),
+                'off': conf.get('timer_off', ''),
+            }) + '\n')
+            return
         if self.path.startswith('/get/'):
             return self.get_data(self.path[4:])
         # whitelist of URL paths
@@ -101,10 +130,21 @@ class MyHandler(SimpleHTTPRequestHandler):
             self.end_headers()
         elif not conf['set_up']:
             self.send_error(500, 'Server is not set up')
+        elif self.path == '/timer':
+            j = self.parse_json()
+            conf['timer_enabled'] = bool(j.get('enabled'))
+            conf['timer_on'] = j.get('on', '')
+            conf['timer_off'] = j.get('off', '')
+            conf_save()
+            self.send_response(200)
+            self.end_headers()
         elif self.path not in ('/button',):
             self.send_error(404)
         else:
             j = self.parse_json()
+            if j.get('name') == 'effect' and j.get('value'):
+                conf['timer_last_effect'] = j['value']
+                conf_save()
             to_led_driver.put([self.path, (j['name'], j.get('value'))])
             self.send_response(200)
             self.end_headers()
@@ -137,6 +177,7 @@ def main():
             name='led_driver', args=(to_led_driver, to_web_server)).start()
     Process(target=sequence_generator_process, daemon=True,
             name='seqgen', args=()).start()
+    threading.Thread(target=timer_loop, daemon=True, name='timer').start()
     # start web server
     HTTPServer.allow_reuse_address = True
     httpd = HTTPServer(('', args.port), MyHandler)
