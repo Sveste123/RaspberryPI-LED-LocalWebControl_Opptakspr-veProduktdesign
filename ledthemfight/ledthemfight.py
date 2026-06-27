@@ -9,6 +9,7 @@ conf_file = '/etc/ledthemfight.conf'
 conf = None
 to_led_driver = Queue()
 to_web_server = Queue()
+manual_override = False
 
 def conf_save():
     dat = json.dumps(conf, indent=2)
@@ -18,6 +19,7 @@ def conf_push():
     to_led_driver.put(['/initial_setup', conf])
 
 def timer_loop():
+    global manual_override
     fired = None
     while True:
         time.sleep(20)
@@ -27,11 +29,17 @@ def timer_loop():
         now = datetime.now().strftime('%H:%M')
         if now == conf.get('timer_on') and fired != ('on', now):
             fired = ('on', now)
-            effect = conf.get('timer_last_effect')
+            if manual_override:
+                manual_override = False
+                continue
+            effect = conf.get('timer_last_effect') or conf.get('standby_effect')
             if effect:
                 to_led_driver.put(['/button', ('effect', effect)])
         elif now == conf.get('timer_off') and fired != ('off', now):
             fired = ('off', now)
+            if manual_override:
+                manual_override = False
+                continue
             to_led_driver.put(['/button', ('stop', None)])
         elif now not in (conf.get('timer_on'), conf.get('timer_off')):
             fired = None
@@ -141,10 +149,12 @@ class MyHandler(SimpleHTTPRequestHandler):
         elif self.path not in ('/button',):
             self.send_error(404)
         else:
+            global manual_override
             j = self.parse_json()
             if j.get('name') == 'effect' and j.get('value'):
                 conf['timer_last_effect'] = j['value']
                 conf_save()
+            manual_override = True
             to_led_driver.put([self.path, (j['name'], j.get('value'))])
             self.send_response(200)
             self.end_headers()
