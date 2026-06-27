@@ -133,8 +133,23 @@ $("#timer-save").on("click", function() {
         off: $("#timer-off").val(),
     });
     $("#timer-save-status").html("Saved!");
-    setTimeout(function() {
-        $("#timer-save-status").html("");
-        loadTimer();
-    }, 2000);
+    setTimeout(function() { $("#timer-save-status").html(""); }, 2000);
+    if ($("input[name='timer-mode']:checked").val() === "solar") {
+        pollSolarTimes(8);
+    }
 });
+
+function pollSolarTimes(attempts) {
+    if (attempts <= 0) return;
+    setTimeout(function() {
+        get("/get/timer", function() {
+            var t = JSON.parse(this.responseText);
+            if (t.solar_on) {
+                $("#solar-on").html(t.solar_on);
+                $("#solar-off").html(t.solar_off);
+            } else {
+                pollSolarTimes(attempts - 1);
+            }
+        });
+    }, 1500);
+}

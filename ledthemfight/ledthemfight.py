@@ -140,6 +140,8 @@ class MyHandler(SimpleHTTPRequestHandler):
                 return
             self.path = '/index.html'
         if self.path == '/get/timer':
+            if conf.get('timer_mode') == 'solar' and not solar_times.get('on'):
+                threading.Thread(target=fetch_solar_times, daemon=True).start()
             self.send_response(200)
             self.end_headers()
             self.write_data(json.dumps({
@@ -236,6 +238,8 @@ def main():
     Process(target=sequence_generator_process, daemon=True,
             name='seqgen', args=()).start()
     threading.Thread(target=timer_loop, daemon=True, name='timer').start()
+    if conf.get('timer_mode') == 'solar':
+        threading.Thread(target=fetch_solar_times, daemon=True).start()
     # start web server
     HTTPServer.allow_reuse_address = True
     httpd = HTTPServer(('', args.port), MyHandler)
