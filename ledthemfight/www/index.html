@@ -38,10 +38,18 @@
 	</div>
 	<div id="timer-section">
 	    <h3>Timer</h3>
-	    <label id="timer-toggle-label"><input type="checkbox" id="timer-enabled" /> Enable timer</label>
-	    <div id="timer-times">
+	    <label id="timer-toggle-label"><input type="checkbox" id="timer-enabled" /> Enable</label>
+	    <div id="timer-mode-row">
+	        <label><input type="radio" name="timer-mode" value="manual" /> Timer</label>
+	        <label><input type="radio" name="timer-mode" value="solar" /> Solur</label>
+	    </div>
+	    <div id="timer-manual">
 	        <label>On: <input type="time" id="timer-on" /></label>
 	        <label>Off: <input type="time" id="timer-off" /></label>
+	    </div>
+	    <div id="timer-solar">
+	        <span>Soloppgang: <strong id="solar-on">–</strong></span>
+	        <span>Solnedgang: <strong id="solar-off">–</strong></span>
 	    </div>
 	    <button id="timer-save">Save</button>
 	    <span id="timer-save-status"></span>

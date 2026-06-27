@@ -96,18 +96,45 @@ $("#brightness").on("input", button);
 $("#pseudo_effects input").on("click", button);
 setInterval(status_update, 500);
 
-get("/get/timer", function() {
-    var t = JSON.parse(this.responseText);
-    $("#timer-enabled").prop("checked", t.enabled);
-    if (t.on) $("#timer-on").val(t.on);
-    if (t.off) $("#timer-off").val(t.off);
+function applyTimerMode(mode) {
+    if (mode === "solar") {
+        $("#timer-manual").hide();
+        $("#timer-solar").show();
+    } else {
+        $("#timer-manual").show();
+        $("#timer-solar").hide();
+    }
+}
+
+function loadTimer() {
+    get("/get/timer", function() {
+        var t = JSON.parse(this.responseText);
+        $("#timer-enabled").prop("checked", t.enabled);
+        $("input[name='timer-mode'][value='" + (t.mode || "manual") + "']").prop("checked", true);
+        if (t.on) $("#timer-on").val(t.on);
+        if (t.off) $("#timer-off").val(t.off);
+        $("#solar-on").html(t.solar_on || "–");
+        $("#solar-off").html(t.solar_off || "–");
+        applyTimerMode(t.mode || "manual");
+    });
+}
+
+loadTimer();
+
+$("input[name='timer-mode']").on("change", function() {
+    applyTimerMode($(this).val());
 });
+
 $("#timer-save").on("click", function() {
     post("/timer", {
         enabled: $("#timer-enabled").prop("checked"),
+        mode: $("input[name='timer-mode']:checked").val() || "manual",
         on: $("#timer-on").val(),
         off: $("#timer-off").val(),
     });
     $("#timer-save-status").html("Saved!");
-    setTimeout(function() { $("#timer-save-status").html(""); }, 2000);
+    setTimeout(function() {
+        $("#timer-save-status").html("");
+        loadTimer();
+    }, 2000);
 });

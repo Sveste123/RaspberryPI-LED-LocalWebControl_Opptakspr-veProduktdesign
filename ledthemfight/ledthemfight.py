@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import argparse, sys, os, json, urllib.parse, signal, threading, time
+import argparse, sys, os, json, urllib.parse, urllib.request, signal, threading, time
 from datetime import datetime
 from multiprocessing import Process, Queue
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -10,6 +10,7 @@ conf = None
 to_led_driver = Queue()
 to_web_server = Queue()
 manual_override = False
+solar_times = {}
 
 def conf_save():
     dat = json.dumps(conf, indent=2)
@@ -17,6 +18,34 @@ def conf_save():
 
 def conf_push():
     to_led_driver.put(['/initial_setup', conf])
+
+def fetch_solar_times():
+    try:
+        lat = conf.get('latitude')
+        lon = conf.get('longitude')
+        if not lat or not lon:
+            with urllib.request.urlopen('https://ipinfo.io/json', timeout=5) as r:
+                geo = json.loads(r.read().decode())
+            lat_str, lon_str = geo.get('loc', '59.9139,10.7522').split(',')
+            lat, lon = float(lat_str), float(lon_str)
+            conf['latitude'] = lat
+            conf['longitude'] = lon
+            conf_save()
+        today = datetime.now().strftime('%Y-%m-%d')
+        offset = datetime.now().astimezone().strftime('%z')
+        offset_fmt = offset[:3] + ':' + offset[3:]
+        url = (f'https://api.met.no/weatherapi/sunrise/3.0/sun'
+               f'?lat={lat}&lon={lon}&date={today}&offset={offset_fmt}')
+        req = urllib.request.Request(url, headers={'User-Agent': 'ledthemfight/1.0'})
+        with urllib.request.urlopen(req, timeout=10) as r:
+            data = json.loads(r.read().decode())
+        props = data['properties']
+        solar_times['on'] = props['sunrise']['time'][11:16]
+        solar_times['off'] = props['sunset']['time'][11:16]
+        solar_times['date'] = today
+        print(f'Solar: soloppgang {solar_times["on"]}, solnedgang {solar_times["off"]}', flush=True)
+    except Exception as e:
+        print(f'Solar fetch error: {e}', file=sys.stderr, flush=True)
 
 def timer_loop():
     global manual_override
@@ -26,21 +55,35 @@ def timer_loop():
         if not conf or not conf.get('timer_enabled') or not conf.get('set_up'):
             fired = None
             continue
+
+        if conf.get('timer_mode') == 'solar':
+            today = datetime.now().strftime('%Y-%m-%d')
+            if solar_times.get('date') != today:
+                fetch_solar_times()
+            on_time = solar_times.get('on')
+            off_time = solar_times.get('off')
+        else:
+            on_time = conf.get('timer_on')
+            off_time = conf.get('timer_off')
+
+        if not on_time or not off_time:
+            continue
+
         now = datetime.now().strftime('%H:%M')
-        if now == conf.get('timer_on') and fired != ('on', now):
+        if now == on_time and fired != ('on', now):
             fired = ('on', now)
             if manual_override:
                 manual_override = False
                 continue
             to_led_driver.put(['/button', ('brightness', 230)])
             to_led_driver.put(['/button', ('effect', 'Warm_White')])
-        elif now == conf.get('timer_off') and fired != ('off', now):
+        elif now == off_time and fired != ('off', now):
             fired = ('off', now)
             if manual_override:
                 manual_override = False
                 continue
             to_led_driver.put(['/button', ('stop', None)])
-        elif now not in (conf.get('timer_on'), conf.get('timer_off')):
+        elif now not in (on_time, off_time):
             fired = None
 
 class MyHandler(SimpleHTTPRequestHandler):
@@ -101,8 +144,11 @@ class MyHandler(SimpleHTTPRequestHandler):
             self.end_headers()
             self.write_data(json.dumps({
                 'enabled': conf.get('timer_enabled', False),
+                'mode': conf.get('timer_mode', 'manual'),
                 'on': conf.get('timer_on', ''),
                 'off': conf.get('timer_off', ''),
+                'solar_on': solar_times.get('on', ''),
+                'solar_off': solar_times.get('off', ''),
             }) + '\n')
             return
         if self.path.startswith('/get/'):
@@ -140,9 +186,12 @@ class MyHandler(SimpleHTTPRequestHandler):
         elif self.path == '/timer':
             j = self.parse_json()
             conf['timer_enabled'] = bool(j.get('enabled'))
+            conf['timer_mode'] = j.get('mode', 'manual')
             conf['timer_on'] = j.get('on', '')
             conf['timer_off'] = j.get('off', '')
             conf_save()
+            if conf['timer_mode'] == 'solar' and not solar_times.get('on'):
+                threading.Thread(target=fetch_solar_times, daemon=True).start()
             self.send_response(200)
             self.end_headers()
         elif self.path not in ('/button',):
