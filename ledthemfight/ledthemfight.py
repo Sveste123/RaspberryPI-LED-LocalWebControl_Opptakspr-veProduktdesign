@@ -40,10 +40,10 @@ def fetch_solar_times():
         with urllib.request.urlopen(req, timeout=10) as r:
             data = json.loads(r.read().decode())
         props = data['properties']
-        solar_times['on'] = props['sunrise']['time'][11:16]
-        solar_times['off'] = props['sunset']['time'][11:16]
+        solar_times['on'] = props['sunset']['time'][11:16]
+        solar_times['off'] = props['sunrise']['time'][11:16]
         solar_times['date'] = today
-        print(f'Solar: soloppgang {solar_times["on"]}, solnedgang {solar_times["off"]}', flush=True)
+        print(f'Solar: på (solnedgang) {solar_times["on"]}, av (soloppgang) {solar_times["off"]}', flush=True)
     except Exception as e:
         print(f'Solar fetch error: {e}', file=sys.stderr, flush=True)
 
